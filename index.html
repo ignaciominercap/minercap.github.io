@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verificador de Certificados</title>
+  <style>
+    /* Aquí va tu CSS */
+    .verificador-certificados {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f8f8f8;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .form-verificacion {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .form-verificacion input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .form-verificacion button {
+      background-color: #0000FF;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .form-verificacion button:hover {
+      background-color: #FFD700;
+      color: #0000FF;
+    }
+    .certificado-info {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 4px solid #0000FF;
+    }
+    .error {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+    .estado-aprobado {
+      color: #27ae60;
+      font-weight: bold;
+    }
+    .estado-pendiente {
+      color: #f39c12;
+      font-weight: bold;
+    }
+    .estado-vencido {
+      color: #e74c3c;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <!-- HTML del Verificador -->
+  <div class="verificador-certificados">
+    <h2>Verificador de Certificados</h2>
+    <div class="form-verificacion">
+      <input type="text" id="rut-certificado" placeholder="Ingrese RUT con o sin puntos y guión">
+      <button id="btn-verificar">Verificar</button>
+    </div>
+    <div id="resultado-certificado"></div>
+  </div>
+
+  <!-- Script del Verificador -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Asignar evento al botón
+      document.getElementById('btn-verificar').addEventListener('click', verificarCertificado);
+      
+      // También permitir verificar al presionar Enter en el campo de texto
+      document.getElementById('rut-certificado').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          verificarCertificado();
+        }
+      });
+      
+      // Función para limpiar el formato del RUT (eliminar puntos y guión)
+      function limpiarRut(rut) {
+        return rut.toString().replace(/\./g, '').replace(/-/g, '').trim();
+      }
+      
+      async function verificarCertificado() {
+        // Obtener el valor del RUT y limpiarlo
+        const rutIngresado = document.getElementById('rut-certificado').value;
+        const rutLimpio = limpiarRut(rutIngresado);
+        
+        // Verificar que se ingresó un RUT
+        if (!rutLimpio) {
+          document.getElementById('resultado-certificado').innerHTML = '<p class="error">Por favor ingrese un RUT válido</p>';
+          return;
+        }
+        
+        // Mostrar mensaje de carga
+        const resultado = document.getElementById('resultado-certificado');
+        resultado.innerHTML = '<p>Verificando certificado...</p>';
+        
+        try {
+          // URL del Apps Script
+          const url = 'https://script.google.com/macros/s/AKfycbw3nivgpXPgQn9qAOiy7ptH5t3KHOD3OZ7sOmv-cot-j8Q4mqNxhqjO96w5szk6tMP5UA/exec';
+          
+          // Crear URL completa para depuración
+          const urlCompleta = `${url}?rut=${rutLimpio}`;
+          console.log("Consultando:", urlCompleta);
+          
+          const response = await fetch(urlCompleta);
+          
+          // Verificar si la respuesta es exitosa
+          if (!response.ok) {
+            throw new Error(`Error de servidor: ${response.status}`);
+          }
+          
+          const data = await response.json();
+          console.log("Respuesta del servidor:", data);
+          
+          // Verificar si se encontró un certificado
+          if (data && data.nombre) {
+            // Formatear las fechas
+            let fechaAprobacion = 'No disponible';
+            if (data.fechaAprobacion) {
+              try {
+                fechaAprobacion = new Date(data.fechaAprobacion).toLocaleDateString('es-CL');
+              } catch (e) {
+                fechaAprobacion = data.fechaAprobacion;
+              }
+            }
+            
+            let fechaVencimiento = 'No disponible';
+            if (data.fechaVencimiento) {
+              try {
+                fechaVencimiento = new Date(data.fechaVencimiento).toLocaleDateString('es-CL');
+              } catch (e) {
+                fechaVencimiento = data.fechaVencimiento;
+              }
+            }
+            
+            resultado.innerHTML = `
+              <div class="certificado-info">
+                <h3>Certificado Encontrado</h3>
+                <p><strong>Nombre:</strong> ${data.nombre}</p>
+                <p><strong>RUT:</strong> ${rutIngresado}</p>
+                <p><strong>Curso:</strong> ${data.curso || 'No especificado'}</p>
+                <p><strong>Fecha Aprobación:</strong> ${fechaAprobacion}</p>
+                <p><strong>Fecha Vencimiento:</strong> ${fechaVencimiento}</p>
+                <p><strong>Estado:</strong> <span class="estado-${(data.estado || 'pendiente').toLowerCase()}">${data.estado || 'Pendiente'}</span></p>
+              </div>
+            `;
+          } else {
+            resultado.innerHTML = '<p class="error">No se encontró certificado para el RUT ingresado</p>';
+          }
+        } catch (error) {
+          console.error('Error en la verificación:', error);
+          resultado.innerHTML = `<p class="error">Error al verificar el certificado: ${error.message}</p>`;
+        }
+      }
+    });
+  </script>
+</body>
+</html>
